@@ -1,4 +1,4 @@
-<img width="3188" height="1202" alt="frame (3)" src="https://github.com/user-attachments/assets/517ad8e9-ad22-457d-9538-a9e62d137cd7" />
+<img width="400" height="400" alt="useless2 0-2" src="https://github.com/user-attachments/assets/ffcdd9e0-3350-46d2-a5cf-9a731d35ba51" />
 
 
 # Only U
@@ -17,6 +17,8 @@ Welcome to the pinnacle of over-engineering — Only U. A revolutionary messagin
 Here’s how it works: Before you can send or read a message, the app stares deeply into your soul (well, your webcam) and confirms you’re you. It uses face-api.js, because if we’re going to make it useless, we might as well make it unnecessarily high-tech. Then it encrypts everything using fancy Diffie-Hellman keys that neither you nor the other person will ever understand.
 
 Messages remain fully encrypted gibberish until you once again prove your face hasn’t dramatically changed since the last selfie. Oh, and we store all this securely in Firebase, because what’s a useless project without a cloud database?
+<img width="1249" height="854" alt="useless2 0-1" src="https://github.com/user-attachments/assets/3b40075c-496a-46cf-85fe-e6ff79c3397d" />
+
 ### The Problem (that doesn't exist)
 Tired of having no chat app of your own and that others sneaks into your chat when u try to have ..uhm...private chats.
 
@@ -48,9 +50,8 @@ APIs Used
 
  Static Web App hosted using github static pages
 ### Project Documentation
-For Software:
 
-# Screenshots (Add at least 3)
+# Screenshots 
 <img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/9171d390-c646-4513-af10-a4f6ba3dc27e" />
 Registering Facial data to get the Unique user id
 
@@ -66,32 +67,89 @@ the chat interface. type the user id in the typebox to start the chat with the u
 <img width="987" height="661" alt="image" src="https://github.com/user-attachments/assets/67c87cf2-a893-406a-8899-a3dbaabe84bb" />
 
 # Diagrams
-![Workflow](Add your workflow/architecture diagram here)
-*Add caption explaining your workflow*
+![Workflow]
++---------------------------------+
+|   Start: New User Opens App     |
++---------------------------------+
+                 |
+                 v
++---------------------------------+
+|   Check Browser for Saved ID    |
++---------------------------------+
+                 |
+     +-----------+-----------+
+     |                       |
+     v                       v
++-----------------+   +----------------------+
+|  ID Not Found   |   |      ID Found        |
++-----------------+   +----------------------+
+     |                       |
+     v                       |
++-----------------+          |
+| Generate New ID |          |
++-----------------+          |
+     |                       |
+     v                       |
++-----------------+          |
+|  Save ID to     |          |
+|  Browser        |          |
++-----------------+          |
+     |                       |
+     +-----------+-----------+
+                 |
+                 v
++---------------------------------+
+|    Show Face Scan Interface     |
++---------------------------------+
+                 |
+                 v
++---------------------------------+
+|  User Starts 3-Second Scan      |
++---------------------------------+
+                 |
+                 v
++---------------------------------+
+|   Scan & Collect Face Samples   |
++---------------------------------+
+                 |
+                 v
++---------------------------------+
+|     Generate Crypto Key Pair    |
+|      (Public and Private)       |
++---------------------------------+
+                 |
+     +-----------+-----------+
+     |                       |
+     v                       v
++-----------------+   +----------------------+
+| Save to Firebase|   | Save to Local Browser|
+| - Public Key    |   | - Private Key        |
+| - Face Profile  |   | - Face Matcher       |
++-----------------+   +----------------------+
+     |                       |
+     +-----------+-----------+
+                 |
+                 v
++---------------------------------+
+|    Show Main Chat Application   |
++---------------------------------+
+                 |
+                 v
++---------------------------------+
+|              End                |
++---------------------------------+
 
-For Hardware:
 
-# Schematic & Circuit
-![Circuit](Add your circuit diagram here)
-*Add caption explaining connections*
 
-![Schematic](Add your schematic diagram here)
-*Add caption explaining the schematic*
 
-# Build Photos
-![Components](Add photo of your components here)
-*List out all components shown*
-
-![Build](Add photos of build process here)
-*Explain the build steps*
-
-![Final](Add photo of final product here)
-*Explain the final build*
 
 ### Project Demo
 # Video
-[Add your demo video link here]
-*Explain what the video demonstrates*
+
+
+https://github.com/user-attachments/assets/71bc784f-c42f-42eb-acca-b51a7e6ea14d
+
+
 
 # Additional Demos
 [Add any extra demo materials/links]
