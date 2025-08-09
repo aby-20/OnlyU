@@ -4,9 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Secure Face-Verified E2EE Chat</title>
-    <!-- Link to the stylesheet -->
     <link href="style.css" rel="stylesheet">
-    <!-- Google Fonts: Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -15,7 +13,7 @@
 
     <div class="container">
 
-        <!-- View 1: Initial Setup (for new users) -->
+        <!-- View 1: Initial Setup -->
         <div id="setup-view" class="view-container setup-view">
             <h1>Welcome to Secure Chat</h1>
             <p id="register-instructions" class="subtitle">To begin, please register your face to create a secure identity.</p>
@@ -28,28 +26,33 @@
             </button>
         </div>
 
-        <!-- View 2: Main Chat Interface (for registered users) -->
+        <!-- View 2: Main Chat Interface -->
         <div id="chat-view" class="hidden">
             <div class="chat-layout">
-                <!-- Left Panel: User Info & User List -->
+                <!-- Left Panel -->
                 <div class="info-panel">
                     <h2>Your Info</h2>
                     <p>Your Unique ID (Click to copy):</p>
                     <p id="my-uuid"></p>
                     <button id="logout-btn" class="btn btn-secondary">Logout & Clear ID</button>
                     
-                    <h2>Users</h2>
-                    <div id="user-list">
-                        <!-- User list will be populated here -->
+                    <!-- Manual Chat Start Section -->
+                    <div class="manual-chat-start">
+                        <h2>Start a Chat</h2>
+                        <input type="text" id="manual-uuid-input" placeholder="Paste a user's UUID here">
+                        <button id="manual-chat-btn" class="btn btn-primary">Chat</button>
                     </div>
+
+                    <h2>Online Users</h2>
+                    <div id="user-list"></div>
                 </div>
 
-                <!-- Right Panel: Chat Window -->
+                <!-- Right Panel -->
                 <div class="chat-panel">
                     <h2>Chat</h2>
                     <p>Chatting with: <span id="chat-partner-uuid">None</span></p>
                     <div id="chat-window">
-                        <p class="chat-placeholder">Select a user to start chatting.</p>
+                        <p class="chat-placeholder">Select an online user or enter a UUID to start chatting.</p>
                     </div>
                     <div class="chat-input-area">
                         <input type="text" id="message-input" placeholder="Write an encrypted message..." disabled>
@@ -60,7 +63,7 @@
         </div>
     </div>
 
-    <!-- Modal for Face Verification to Decrypt Message -->
+    <!-- Modal for Face Verification -->
     <div id="decrypt-modal" class="modal-overlay hidden">
         <div class="modal-content">
             <h2>Verify Face to Decrypt</h2>

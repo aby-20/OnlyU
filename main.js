@@ -8,7 +8,7 @@ const App = {
     // ========================
     config: {
         firebase: {
-           apiKey: "AIzaSyA5wXboSGvB4F36LWR2zrz7XUzWbx8USq0",
+            apiKey: "AIzaSyA5wXboSGvB4F36LWR2zrz7XUzWbx8USq0",
   authDomain: "chat-802b8.firebaseapp.com",
   projectId: "chat-802b8",
    databaseURL: "https://chat-802b8-default-rtdb.asia-southeast1.firebasedatabase.app",
@@ -18,7 +18,7 @@ const App = {
   measurementId: "G-7GHC8RPD0T"
         },
         modelsUrl: './models',
-        matchThreshold: 0.70,
+        matchThreshold: 0.55,
         faceapiOptions: new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 }),
         registrationScanDuration: 3000, // 3 seconds
         registrationScanInterval: 500, // 0.5 seconds
@@ -48,6 +48,8 @@ const App = {
         myUuidDisplay: document.getElementById('my-uuid'),
         logoutBtn: document.getElementById('logout-btn'),
         userList: document.getElementById('user-list'),
+        manualUuidInput: document.getElementById('manual-uuid-input'), // New
+        manualChatBtn: document.getElementById('manual-chat-btn'),     // New
         chatPartnerUuidDisplay: document.getElementById('chat-partner-uuid'),
         chatWindow: document.getElementById('chat-window'),
         messageInput: document.getElementById('message-input'),
@@ -103,6 +105,7 @@ const App = {
         this.elements.logoutBtn.addEventListener('click', () => this.identity.logout());
         this.elements.myUuidDisplay.addEventListener('click', () => this.ui.copyMyUuid());
         this.elements.sendBtn.addEventListener('click', () => this.chat.sendMessage());
+        this.elements.manualChatBtn.addEventListener('click', () => this.chat.startManualChat()); // New
     },
 
     // ========================
@@ -172,7 +175,6 @@ const App = {
 
             this.ui.updateStatus("Scan complete. Creating your secure identity...", "bg-green-500");
             
-            // --- FIX: Get or create a persistent UUID for the device ---
             let uuid = localStorage.getItem('secure-chat-device-uuid');
             if (!uuid) {
                 uuid = self.crypto.randomUUID();
@@ -268,7 +270,6 @@ const App = {
             const userStatusRef = App.db.ref(`/onlineUsers/${App.state.myIdentity.uuid}`);
             await userStatusRef.remove();
             
-            // --- FIX: Clear both the identity and the device UUID on logout ---
             localStorage.removeItem('secure-chat-identity');
             localStorage.removeItem('secure-chat-device-uuid');
             window.location.reload();
@@ -332,9 +333,30 @@ const App = {
             this.listenForMessages(uuid);
         },
 
+        async startManualChat() {
+            const uuid = App.elements.manualUuidInput.value.trim();
+            if (!uuid || uuid === App.state.myIdentity.uuid) {
+                App.ui.updateStatus("Please enter a valid UUID.", "bg-yellow-500", 3000);
+                return;
+            }
+
+            const userDetailsSnapshot = await App.db.ref(`users/${uuid}`).once('value');
+            if (!userDetailsSnapshot.exists()) {
+                App.ui.updateStatus("User with that UUID not found.", "bg-red-500", 3000);
+                return;
+            }
+
+            const userDetails = userDetailsSnapshot.val();
+            this.start(uuid, userDetails.publicKey);
+            App.elements.manualUuidInput.value = ''; // Clear input
+        },
+
         async sendMessage() {
-            const messageText = App.elements.messageInput.value.trim();
-            if (!messageText || !App.state.currentChatPartner) return;
+            const text = App.elements.messageInput.value.trim();
+            if (!text || !App.state.currentChatPartner) return;
+            
+            const messageContent = { type: 'text', content: text };
+            App.elements.messageInput.value = '';
 
             const cacheKey = [App.state.myIdentity.uuid, App.state.currentChatPartner.uuid].sort().join('-');
             const sharedKey = App.state.sharedSecretCache[cacheKey];
@@ -343,7 +365,7 @@ const App = {
                 return;
             }
 
-            const encryptedData = await App.crypto.encryptMessage(messageText, sharedKey);
+            const encryptedData = await App.crypto.encryptMessage(JSON.stringify(messageContent), sharedKey);
             const message = {
                 senderId: App.state.myIdentity.uuid,
                 ...encryptedData,
@@ -351,9 +373,7 @@ const App = {
             };
 
             const chatId = [App.state.myIdentity.uuid, App.state.currentChatPartner.uuid].sort().join('_');
-            const messagesRef = App.db.ref(`chats/${chatId}`).push();
-            await messagesRef.set(message);
-            App.elements.messageInput.value = '';
+            await App.db.ref(`chats/${chatId}`).push().set(message);
         },
 
         listenForMessages(partnerUuid) {
@@ -378,12 +398,12 @@ const App = {
             });
         },
         
-        renderMessage(messageData, messageId, partnerUuid) {
+        async renderMessage(encryptedMessage, messageId, partnerUuid) {
             const msgDiv = document.createElement('div');
             msgDiv.id = `msg-${messageId}`;
             const content = document.createElement('p');
             
-            const isSent = messageData.senderId === App.state.myIdentity.uuid;
+            const isSent = encryptedMessage.senderId === App.state.myIdentity.uuid;
             msgDiv.className = `message ${isSent ? 'sent' : 'received'}`;
             
             const messageContentWrapper = document.createElement('div');
@@ -395,34 +415,35 @@ const App = {
             msgDiv.appendChild(messageContentWrapper);
 
             if (isSent) {
-                content.textContent = "You sent an encrypted message.";
+                const cacheKey = [App.state.myIdentity.uuid, partnerUuid].sort().join('-');
+                const sharedKey = App.state.sharedSecretCache[cacheKey];
+                const decryptedJson = await App.crypto.decryptMessage(encryptedMessage, sharedKey);
+                const messageData = JSON.parse(decryptedJson);
+                content.textContent = messageData.content;
+
                 const deleteBtn = document.createElement('button');
                 deleteBtn.innerHTML = '&#128465;';
                 deleteBtn.className = 'delete-btn';
-                deleteBtn.style.background = 'none';
-                deleteBtn.style.border = 'none';
-                deleteBtn.style.cursor = 'pointer';
-                deleteBtn.style.fontSize = '16px';
-                const chatId = [App.state.myIdentity.uuid, partnerUuid].sort().join('_');
-                deleteBtn.onclick = () => this.deleteMessage(messageId, chatId);
+                deleteBtn.onclick = () => this.deleteMessage(messageId, partnerUuid);
                 messageContentWrapper.appendChild(deleteBtn);
 
             } else {
                 content.textContent = "🔒 Encrypted Message. Click to decrypt.";
                 msgDiv.classList.add('clickable');
                 msgDiv.onclick = async () => {
-                    App.state.messageToDecrypt = { data: messageData, element: content };
                     const success = await App.modal.openVerification();
                     if (success) {
-                        const partnerData = (await App.db.ref(`users/${messageData.senderId}`).once('value')).val();
+                        const partnerData = (await App.db.ref(`users/${encryptedMessage.senderId}`).once('value')).val();
                         const partnerPublicKey = JSON.parse(partnerData.publicKey);
-                        const cacheKey = [App.state.myIdentity.uuid, messageData.senderId].sort().join('-');
+                        const cacheKey = [App.state.myIdentity.uuid, encryptedMessage.senderId].sort().join('-');
                         if (!App.state.sharedSecretCache[cacheKey]) {
                             App.state.sharedSecretCache[cacheKey] = await App.crypto.deriveSharedSecret(App.state.myIdentity.privateKey, partnerPublicKey);
                         }
                         const sharedKey = App.state.sharedSecretCache[cacheKey];
-                        const decryptedText = await App.crypto.decryptMessage(messageData, sharedKey);
-                        content.textContent = decryptedText;
+                        const decryptedJson = await App.crypto.decryptMessage(encryptedMessage, sharedKey);
+                        const messageData = JSON.parse(decryptedJson);
+                        
+                        content.textContent = messageData.content;
                         msgDiv.classList.add('decrypted');
                         msgDiv.onclick = null;
                     }
@@ -432,17 +453,9 @@ const App = {
             App.elements.chatWindow.scrollTop = App.elements.chatWindow.scrollHeight;
         },
 
-        async deleteMessage(messageId, chatId) {
-            if (!chatId || !messageId) return;
-            const messageRef = App.db.ref(`chats/${chatId}/${messageId}`);
-            
-            try {
-                await messageRef.remove();
-                console.log(`Message ${messageId} deleted.`);
-            } catch (error) {
-                console.error("Error deleting message:", error);
-                App.ui.updateStatus("Could not delete message.", "bg-red-500", 2000);
-            }
+        async deleteMessage(messageId, partnerUuid) {
+            const chatId = [App.state.myIdentity.uuid, partnerUuid].sort().join('_');
+            await App.db.ref(`chats/${chatId}/${messageId}`).remove();
         }
     },
     
@@ -464,7 +477,6 @@ const App = {
                 });
             } catch (e) {
                 App.ui.updateStatus("Webcam access denied.", "bg-red-500");
-                console.error("Webcam error:", e);
             }
         },
         stop(streamStateKey) {
@@ -498,8 +510,7 @@ const App = {
                         const bestMatch = App.state.myIdentity.faceMatcher.findBestMatch(descriptor);
                         const isMatch = bestMatch.label !== 'unknown';
                         
-                        const feedbackMsg = `Match: ${isMatch}. Distance: ${bestMatch.distance.toFixed(2)} (Threshold: ${App.config.matchThreshold})`;
-                        console.log(feedbackMsg);
+                        const feedbackMsg = `Match: ${isMatch}. Distance: ${bestMatch.distance.toFixed(2)}`;
                         App.ui.updateStatus(feedbackMsg, isMatch ? "bg-green-500" : "bg-red-500", 3000);
                         
                         cleanupAndResolve(isMatch);
@@ -549,7 +560,6 @@ const App = {
                 const decryptedBuffer = await self.crypto.subtle.decrypt({ name: "AES-GCM", iv: fromBase64(encryptedData.iv) }, sharedKey, fromBase64(encryptedData.ciphertext));
                 return new TextDecoder().decode(decryptedBuffer);
             } catch (e) {
-                console.error("Decryption failed:", e);
                 return "Decryption Failed.";
             }
         }
