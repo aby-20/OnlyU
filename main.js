@@ -8,7 +8,7 @@ const App = {
     // ========================
     config: {
         firebase: {
-            apiKey: "AIzaSyA5wXboSGvB4F36LWR2zrz7XUzWbx8USq0",
+           apiKey: "AIzaSyA5wXboSGvB4F36LWR2zrz7XUzWbx8USq0",
   authDomain: "chat-802b8.firebaseapp.com",
   projectId: "chat-802b8",
    databaseURL: "https://chat-802b8-default-rtdb.asia-southeast1.firebasedatabase.app",
@@ -172,7 +172,13 @@ const App = {
 
             this.ui.updateStatus("Scan complete. Creating your secure identity...", "bg-green-500");
             
-            const uuid = self.crypto.randomUUID();
+            // --- FIX: Get or create a persistent UUID for the device ---
+            let uuid = localStorage.getItem('secure-chat-device-uuid');
+            if (!uuid) {
+                uuid = self.crypto.randomUUID();
+                localStorage.setItem('secure-chat-device-uuid', uuid);
+            }
+            
             const keyPair = await this.crypto.generateECDHKeyPair();
             const jwkPublicKey = await self.crypto.subtle.exportKey("jwk", keyPair.publicKey);
 
@@ -262,7 +268,9 @@ const App = {
             const userStatusRef = App.db.ref(`/onlineUsers/${App.state.myIdentity.uuid}`);
             await userStatusRef.remove();
             
+            // --- FIX: Clear both the identity and the device UUID on logout ---
             localStorage.removeItem('secure-chat-identity');
+            localStorage.removeItem('secure-chat-device-uuid');
             window.location.reload();
         }
     },
@@ -358,7 +366,6 @@ const App = {
             App.state.activeChatListener = messagesRef;
 
             messagesRef.on('child_added', snapshot => {
-                // --- FIX: Pass the partner's UUID to the render function ---
                 this.renderMessage(snapshot.val(), snapshot.key, partnerUuid);
             });
 
@@ -396,7 +403,6 @@ const App = {
                 deleteBtn.style.border = 'none';
                 deleteBtn.style.cursor = 'pointer';
                 deleteBtn.style.fontSize = '16px';
-                // --- FIX: Construct the correct chatId for deletion ---
                 const chatId = [App.state.myIdentity.uuid, partnerUuid].sort().join('_');
                 deleteBtn.onclick = () => this.deleteMessage(messageId, chatId);
                 messageContentWrapper.appendChild(deleteBtn);
@@ -427,7 +433,6 @@ const App = {
         },
 
         async deleteMessage(messageId, chatId) {
-            // --- FIX: The function now receives the correct chatId directly ---
             if (!chatId || !messageId) return;
             const messageRef = App.db.ref(`chats/${chatId}/${messageId}`);
             

@@ -272,7 +272,7 @@ video, canvas {
     z-index: 100;
 }
 #statusMessage {
-    color: white;
+    color: black;
     font-weight: 500;
     padding: 0.75rem;
     border-radius: 0.5rem;
