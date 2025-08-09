@@ -67,7 +67,8 @@ the chat interface. type the user id in the typebox to start the chat with the u
 <img width="987" height="661" alt="image" src="https://github.com/user-attachments/assets/67c87cf2-a893-406a-8899-a3dbaabe84bb" />
 
 # Diagrams
-![Workflow]
+```
+Part 1 - New User Registration
 +---------------------------------+
 |   Start: New User Opens App     |
 +---------------------------------+
@@ -143,6 +144,78 @@ the chat interface. type the user id in the typebox to start the chat with the u
 
 
 
+
+
+Part 2: End-to-End Encrypted Messaging
++---------------------------------+      +-----------------------------+      +-----------------------------+
+|          SENDER (USER A)        |      |       FIREBASE SERVER       |      |      RECIPIENT (USER B)     |
++---------------------------------+      +-----------------------------+      +-----------------------------+
+                 |                                                                           |
+                 v                                                                           |
++---------------------------------+                                                          |
+|  Selects User B to Chat With    |                                                          |
++---------------------------------+                                                          |
+                 |                                                                           |
+                 v                                                                           |
++---------------------------------+                                                          |
+| Fetches B's Public Key from DB  |                                                          |
++---------------------------------+                                                          |
+                 |                                                                           |
+                 v                                                                           |
++---------------------------------+                                                          |
+|   Derives Shared Secret Key     |                                                          |
++---------------------------------+                                                          |
+                 |                                                                           |
+                 v                                                                           |
++---------------------------------+                                                          |
+|    Encrypts Message with Key    |                                                          |
++---------------------------------+                                                          |
+                 |                                                                           |
+                 +------------------------>+-----------------------------+                    |
+                                         |   Stores Encrypted Message  |                    |
+                                         +-----------------------------+<--------------------+
+                                                        |
+                                                        v
+                                         +-----------------------------+
+                                         |   Notifies Recipient App    |
+                                         +-----------------------------+
+                                                        |
+                                                        +------------------------------------>+
+                                                                                             |
+                                                                                             v
+                                                                             +-----------------------------+
+                                                                             |  User B Clicks to Decrypt   |
+                                                                             +-----------------------------+
+                                                                                             |
+                                                                                             v
+                                                                             +-----------------------------+
+                                                                             |   Verifies Face to Unlock   |
+                                                                             +-----------------------------+
+                                                                                             |
+                                                                                             v
+                                                                             +-----------------------------+
+                                                                             |  Derives Shared Secret Key  |
+                                                                             +-----------------------------+
+                                                                                             |
+                                                                                             v
+                                                                             +-----------------------------+
+                                                                             |   Decrypts Message with Key |
+                                                                             +-----------------------------+
+                                                                                             |
+                                                                                             v
+                                                                             +-----------------------------+
+                                                                             | Displays Understandable Message |
+                                                                             +-----------------------------+
+                                                                                             |
+                                                                                             v
+                                                                             +-----------------------------+
+                                                                             |             End             |
+                                                                             +-----------------------------+  i wanna include this workflow inside a readme.md. show do i display this just like thos
+
+```
+
+
+
 ### Project Demo
 # Video
 
@@ -151,13 +224,16 @@ https://github.com/user-attachments/assets/71bc784f-c42f-42eb-acca-b51a7e6ea14d
 
 
 
-# Additional Demos
-[Add any extra demo materials/links]
+
 
 ## Team Contributions
 - [Name 1]: [Specific contributions]
 - [Name 2]: [Specific contributions]
-- [Name 3]: [Specific contributions]
+
+
+## Host Web
+
+
 
 ---
 Made with ❤️ at TinkerHub Useless Projects 
