@@ -49,6 +49,8 @@ APIs Used
 ### Implementation
 
  Static Web App hosted using github static pages
+
+ https://aby-20.github.io/OnlyU/
 ### Project Documentation
 
 # Screenshots 
@@ -226,14 +228,10 @@ https://github.com/user-attachments/assets/71bc784f-c42f-42eb-acca-b51a7e6ea14d
 
 
 
-## Team Contributions
-- [Name 1]: [Specific contributions]
-- [Name 2]: [Specific contributions]
-
-
 ## Host Web
 
 
+https://aby-20.github.io/OnlyU/
 
 ---
 Made with ❤️ at TinkerHub Useless Projects 
