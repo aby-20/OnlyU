@@ -120,7 +120,6 @@ const App = {
             App.elements.setupView.classList.add('hidden');
             App.elements.chatView.classList.remove('hidden');
             App.elements.myUuidDisplay.textContent = App.state.myIdentity.uuid;
-            // Add initial placeholder text while loading users
             App.elements.userList.innerHTML = '<p class="text-gray-400 placeholder">Loading online users...</p>';
             App.chat.listenForUsers();
         },
@@ -272,19 +271,15 @@ const App = {
     // CHAT LOGIC
     // ========================
     chat: {
-        // --- FIX: Rewritten for robust, event-driven presence updates ---
         listenForUsers() {
             const onlineUsersRef = App.db.ref('onlineUsers');
 
-            // Listen for users coming online
             onlineUsersRef.on('child_added', async snapshot => {
                 const uuid = snapshot.key;
-                if (uuid === App.state.myIdentity.uuid) return; // Don't add myself
+                if (uuid === App.state.myIdentity.uuid) return;
 
-                // Check if the user is already in the list to avoid duplicates
                 if (document.getElementById(`user-${uuid}`)) return;
 
-                // Remove the "No users online" placeholder if it exists
                 const placeholder = App.elements.userList.querySelector('.placeholder');
                 if (placeholder) placeholder.remove();
 
@@ -293,14 +288,13 @@ const App = {
 
                 if (userDetails) {
                     const userElement = document.createElement('div');
-                    userElement.id = `user-${uuid}`; // Add an ID for easy removal
+                    userElement.id = `user-${uuid}`;
                     userElement.textContent = `User ${uuid.substring(0, 8)}...`;
                     userElement.onclick = () => App.chat.start(uuid, userDetails.publicKey);
                     App.elements.userList.appendChild(userElement);
                 }
             });
 
-            // Listen for users going offline
             onlineUsersRef.on('child_removed', snapshot => {
                 const uuid = snapshot.key;
                 const userElement = document.getElementById(`user-${uuid}`);
@@ -308,7 +302,6 @@ const App = {
                     userElement.remove();
                 }
 
-                // If the list is now empty, show the placeholder
                 if (App.elements.userList.children.length === 0) {
                     App.elements.userList.innerHTML = '<p class="text-gray-400 placeholder">No other users online.</p>';
                 }
@@ -365,21 +358,49 @@ const App = {
             App.state.activeChatListener = messagesRef;
 
             messagesRef.on('child_added', snapshot => {
-                const messageData = snapshot.val();
-                this.renderMessage(messageData);
+                // --- FIX: Pass the partner's UUID to the render function ---
+                this.renderMessage(snapshot.val(), snapshot.key, partnerUuid);
+            });
+
+            messagesRef.on('child_removed', snapshot => {
+                const messageId = snapshot.key;
+                const messageElement = document.getElementById(`msg-${messageId}`);
+                if (messageElement) {
+                    messageElement.remove();
+                }
             });
         },
         
-        renderMessage(messageData) {
+        renderMessage(messageData, messageId, partnerUuid) {
             const msgDiv = document.createElement('div');
+            msgDiv.id = `msg-${messageId}`;
             const content = document.createElement('p');
-            msgDiv.appendChild(content);
-
+            
             const isSent = messageData.senderId === App.state.myIdentity.uuid;
             msgDiv.className = `message ${isSent ? 'sent' : 'received'}`;
+            
+            const messageContentWrapper = document.createElement('div');
+            messageContentWrapper.style.display = 'flex';
+            messageContentWrapper.style.alignItems = 'center';
+            messageContentWrapper.style.gap = '10px';
+
+            messageContentWrapper.appendChild(content);
+            msgDiv.appendChild(messageContentWrapper);
 
             if (isSent) {
                 content.textContent = "You sent an encrypted message.";
+                const deleteBtn = document.createElement('button');
+                deleteBtn.innerHTML = '&#128465;';
+                deleteBtn.className = 'delete-btn';
+                deleteBtn.style.background = 'none';
+                deleteBtn.style.border = 'none';
+                deleteBtn.style.cursor = 'pointer';
+                deleteBtn.style.fontSize = '16px';
+                // --- FIX: Construct the correct chatId for deletion ---
+                const chatId = [App.state.myIdentity.uuid, partnerUuid].sort().join('_');
+                deleteBtn.onclick = () => this.deleteMessage(messageId, chatId);
+                messageContentWrapper.appendChild(deleteBtn);
+
             } else {
                 content.textContent = "🔒 Encrypted Message. Click to decrypt.";
                 msgDiv.classList.add('clickable');
@@ -403,6 +424,20 @@ const App = {
             }
             App.elements.chatWindow.appendChild(msgDiv);
             App.elements.chatWindow.scrollTop = App.elements.chatWindow.scrollHeight;
+        },
+
+        async deleteMessage(messageId, chatId) {
+            // --- FIX: The function now receives the correct chatId directly ---
+            if (!chatId || !messageId) return;
+            const messageRef = App.db.ref(`chats/${chatId}/${messageId}`);
+            
+            try {
+                await messageRef.remove();
+                console.log(`Message ${messageId} deleted.`);
+            } catch (error) {
+                console.error("Error deleting message:", error);
+                App.ui.updateStatus("Could not delete message.", "bg-red-500", 2000);
+            }
         }
     },
     
