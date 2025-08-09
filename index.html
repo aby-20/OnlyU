@@ -18,13 +18,13 @@
         <!-- View 1: Initial Setup (for new users) -->
         <div id="setup-view" class="view-container setup-view">
             <h1>Welcome to Secure Chat</h1>
-            <p class="subtitle">To begin, please register your face to create a secure identity.</p>
+            <p id="register-instructions" class="subtitle">To begin, please register your face to create a secure identity.</p>
             <div id="videoContainer">
                 <video id="video" playsinline autoplay muted></video>
                 <canvas id="canvas"></canvas>
             </div>
             <button id="register-btn" class="btn" disabled>
-                Create My Secure ID
+                Start 3-Second Face Scan
             </button>
         </div>
 
@@ -85,7 +85,6 @@
     <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-    <!-- Note: No type="module" is needed now -->
     <script src="main.js"></script>
 
 </body>

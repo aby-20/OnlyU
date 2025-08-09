@@ -10,6 +10,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyA5wXboSGvB4F36LWR2zrz7XUzWbx8USq0",
   authDomain: "chat-802b8.firebaseapp.com",
   projectId: "chat-802b8",
+   databaseURL: "https://chat-802b8-default-rtdb.asia-southeast1.firebasedatabase.app",
   storageBucket: "chat-802b8.firebasestorage.app",
   messagingSenderId: "511403700067",
   appId: "1:511403700067:web:51e30ae1b5d25b7718ed56",

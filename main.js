@@ -6,24 +6,27 @@ const App = {
     // ========================
     // CONFIG & STATE
     // ========================
-  config: {
-    firebase: {
-       apiKey: "AIzaSyA5wXboSGvB4F36LWR2zrz7XUzWbx8USq0",
-      authDomain: "chat-802b8.firebaseapp.com",
-      projectId: "chat-802b8",
-      databaseURL: "https://chat-802b8-default-rtdb.asia-southeast1.firebasedatabase.app",
-      storageBucket: "chat-802b8.firebasestorage.app",
-      messagingSenderId: "511403700067",
-      appId: "1:511403700067:web:51e30ae1b5d25b7718ed56",
-      measurementId: "G-7GHC8RPD0T"
-    },
+    config: {
+        firebase: {
+            apiKey: "AIzaSyA5wXboSGvB4F36LWR2zrz7XUzWbx8USq0",
+  authDomain: "chat-802b8.firebaseapp.com",
+  projectId: "chat-802b8",
+   databaseURL: "https://chat-802b8-default-rtdb.asia-southeast1.firebasedatabase.app",
+  storageBucket: "chat-802b8.firebasestorage.app",
+  messagingSenderId: "511403700067",
+  appId: "1:511403700067:web:51e30ae1b5d25b7718ed56",
+  measurementId: "G-7GHC8RPD0T"
+        },
         modelsUrl: './models',
         matchThreshold: 0.55,
+        faceapiOptions: new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 }),
+        registrationScanDuration: 3000, // 3 seconds
+        registrationScanInterval: 500, // 0.5 seconds
     },
     
     state: {
         modelsLoaded: false,
-        myIdentity: null, // { uuid, privateKey, faceDescriptor }
+        myIdentity: null, // { uuid, privateKey, faceMatcher }
         currentChatPartner: null, // { uuid, publicKey }
         sharedSecretCache: {},
         messageToDecrypt: null,
@@ -41,6 +44,7 @@ const App = {
         video: document.getElementById('video'),
         canvas: document.getElementById('canvas'),
         registerBtn: document.getElementById('register-btn'),
+        registerInstructions: document.getElementById('register-instructions'),
         myUuidDisplay: document.getElementById('my-uuid'),
         logoutBtn: document.getElementById('logout-btn'),
         userList: document.getElementById('user-list'),
@@ -60,7 +64,6 @@ const App = {
     // INITIALIZATION
     // ========================
     async init() {
-        // This is the main entry point of the application.
         this.addEventListeners();
         firebase.initializeApp(this.config.firebase);
         this.db = firebase.database();
@@ -80,7 +83,7 @@ const App = {
         this.ui.updateStatus("Loading face models...", "bg-blue-500");
         try {
             await Promise.all([
-                faceapi.nets.tinyFaceDetector.loadFromUri(this.config.modelsUrl),
+                faceapi.nets.ssdMobilenetv1.loadFromUri(this.config.modelsUrl),
                 faceapi.nets.faceLandmark68Net.loadFromUri(this.config.modelsUrl),
                 faceapi.nets.faceRecognitionNet.loadFromUri(this.config.modelsUrl)
             ]);
@@ -117,6 +120,8 @@ const App = {
             App.elements.setupView.classList.add('hidden');
             App.elements.chatView.classList.remove('hidden');
             App.elements.myUuidDisplay.textContent = App.state.myIdentity.uuid;
+            // Add initial placeholder text while loading users
+            App.elements.userList.innerHTML = '<p class="text-gray-400 placeholder">Loading online users...</p>';
             App.chat.listenForUsers();
         },
 
@@ -142,35 +147,62 @@ const App = {
     // REGISTRATION & LOGIN
     // ========================
     async register() {
-        this.ui.updateStatus("Capturing face...", "bg-blue-500");
-        const faceDescriptor = await this.face.getDescriptor(this.elements.video);
-        if (!faceDescriptor) {
-            this.ui.updateStatus("No face detected. Please try again.", "bg-yellow-500", 3000);
-            return;
-        }
+        this.elements.registerBtn.disabled = true;
+        const descriptors = [];
+        
+        this.ui.updateStatus("Starting scan... Hold still.", "bg-blue-500");
+        this.elements.registerInstructions.textContent = "Scanning... Please look at the camera.";
 
-        this.ui.updateStatus("Creating your secure identity...", "bg-blue-500");
-        const uuid = self.crypto.randomUUID();
-        const keyPair = await this.crypto.generateECDHKeyPair();
-        const jwkPublicKey = await self.crypto.subtle.exportKey("jwk", keyPair.publicKey);
+        const captureInterval = setInterval(async () => {
+            const descriptor = await this.face.getDescriptor(this.elements.video);
+            if (descriptor) {
+                descriptors.push(descriptor);
+                this.ui.updateStatus(`Collected sample ${descriptors.length}`, "bg-blue-500");
+            }
+        }, this.config.registrationScanInterval);
 
-        const newUser = {
-            faceDescriptor: Array.from(faceDescriptor),
-            publicKey: jwkPublicKey,
-            createdAt: firebase.database.ServerValue.TIMESTAMP
-        };
+        setTimeout(async () => {
+            clearInterval(captureInterval);
+            
+            if (descriptors.length < 3) {
+                this.ui.updateStatus("Scan failed. Not enough face samples. Please try again.", "bg-red-500", 4000);
+                this.elements.registerInstructions.textContent = "To begin, please register your face to create a secure identity.";
+                this.elements.registerBtn.disabled = false;
+                return;
+            }
 
-        try {
-            await this.db.ref(`users/${uuid}`).set(newUser);
-            this.state.myIdentity = { uuid, privateKey: keyPair.privateKey, faceDescriptor };
-            await this.identity.saveToStorage(this.state.myIdentity);
-            this.ui.updateStatus("Identity created successfully!", "bg-green-500", 2000);
-            this.video.stop('videoStream');
-            this.ui.showChatView();
-        } catch (e) {
-            this.ui.updateStatus("Error saving to database.", "bg-red-500");
-            console.error("Registration DB error:", e);
-        }
+            this.ui.updateStatus("Scan complete. Creating your secure identity...", "bg-green-500");
+            
+            const uuid = self.crypto.randomUUID();
+            const keyPair = await this.crypto.generateECDHKeyPair();
+            const jwkPublicKey = await self.crypto.subtle.exportKey("jwk", keyPair.publicKey);
+
+            const storableDescriptors = descriptors.map(d => Array.from(d));
+
+            const newUser = {
+                faceDescriptors: JSON.stringify(storableDescriptors),
+                publicKey: JSON.stringify(jwkPublicKey),
+                createdAt: firebase.database.ServerValue.TIMESTAMP
+            };
+
+            try {
+                await this.db.ref(`users/${uuid}`).set(newUser);
+                const labeledDescriptors = new faceapi.LabeledFaceDescriptors(uuid, descriptors);
+                const faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, this.config.matchThreshold);
+                
+                this.state.myIdentity = { uuid, privateKey: keyPair.privateKey, faceMatcher };
+                await this.identity.saveToStorage(uuid, storableDescriptors, keyPair.privateKey);
+                
+                this.ui.updateStatus("Identity created successfully!", "bg-green-500", 2000);
+                this.video.stop('videoStream');
+                this.ui.showChatView();
+            } catch (e) {
+                this.ui.updateStatus("Firebase Save Error. See console.", "bg-red-500");
+                console.error("Firebase database set error:", e);
+                this.elements.registerBtn.disabled = false;
+            }
+
+        }, this.config.registrationScanDuration);
     },
 
     async faceLogin() {
@@ -178,6 +210,7 @@ const App = {
         const success = await this.modal.openVerification();
         if (success) {
             this.ui.updateStatus("Login successful!", "bg-green-500", 2000);
+            await this.identity.goOnline();
         } else {
             this.ui.updateStatus("Login failed. Refresh to try again.", "bg-red-500");
             this.elements.chatView.innerHTML = '<h1>Login Failed. Please refresh the page.</h1>';
@@ -185,7 +218,7 @@ const App = {
     },
 
     // ========================
-    // IDENTITY MANAGEMENT
+    // IDENTITY & PRESENCE MANAGEMENT
     // ========================
     identity: {
         async loadFromStorage() {
@@ -193,29 +226,43 @@ const App = {
             if (!storedIdentity) return null;
             
             try {
-                const { uuid, jwkPrivateKey, faceDescriptor } = JSON.parse(storedIdentity);
+                const { uuid, jwkPrivateKey, faceDescriptors } = JSON.parse(storedIdentity);
                 const privateKey = await self.crypto.subtle.importKey(
                     "jwk", jwkPrivateKey, { name: "ECDH", namedCurve: "P-256" }, true, ["deriveKey"]
                 );
-                return { uuid, privateKey, faceDescriptor: new Float32Array(faceDescriptor) };
+                const descriptors = faceDescriptors.map(d => new Float32Array(d));
+                const labeledDescriptors = new faceapi.LabeledFaceDescriptors(uuid, descriptors);
+                const faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, App.config.matchThreshold);
+                
+                return { uuid, privateKey, faceMatcher };
             } catch (e) {
                 console.error("Failed to load identity from storage:", e);
-                localStorage.removeItem('secure-chat-identity'); // Clear corrupted data
+                localStorage.removeItem('secure-chat-identity');
                 return null;
             }
         },
 
-        async saveToStorage(identity) {
-            const jwkPrivateKey = await self.crypto.subtle.exportKey("jwk", identity.privateKey);
+        async saveToStorage(uuid, faceDescriptors, privateKey) {
+            const jwkPrivateKey = await self.crypto.subtle.exportKey("jwk", privateKey);
             const storableIdentity = {
-                uuid: identity.uuid,
+                uuid,
                 jwkPrivateKey,
-                faceDescriptor: Array.from(identity.faceDescriptor)
+                faceDescriptors
             };
             localStorage.setItem('secure-chat-identity', JSON.stringify(storableIdentity));
         },
 
-        logout() {
+        async goOnline() {
+            const userStatusRef = App.db.ref(`/onlineUsers/${App.state.myIdentity.uuid}`);
+            await userStatusRef.onDisconnect().remove();
+            await userStatusRef.set(true);
+            console.log("User is online.");
+        },
+
+        async logout() {
+            const userStatusRef = App.db.ref(`/onlineUsers/${App.state.myIdentity.uuid}`);
+            await userStatusRef.remove();
+            
             localStorage.removeItem('secure-chat-identity');
             window.location.reload();
         }
@@ -225,24 +272,51 @@ const App = {
     // CHAT LOGIC
     // ========================
     chat: {
+        // --- FIX: Rewritten for robust, event-driven presence updates ---
         listenForUsers() {
-            const usersRef = App.db.ref('users');
-            usersRef.on('value', snapshot => {
-                App.elements.userList.innerHTML = '';
-                const users = snapshot.val();
-                if (!users) return;
-                
-                for (const uuid in users) {
-                    if (uuid === App.state.myIdentity.uuid) continue;
+            const onlineUsersRef = App.db.ref('onlineUsers');
+
+            // Listen for users coming online
+            onlineUsersRef.on('child_added', async snapshot => {
+                const uuid = snapshot.key;
+                if (uuid === App.state.myIdentity.uuid) return; // Don't add myself
+
+                // Check if the user is already in the list to avoid duplicates
+                if (document.getElementById(`user-${uuid}`)) return;
+
+                // Remove the "No users online" placeholder if it exists
+                const placeholder = App.elements.userList.querySelector('.placeholder');
+                if (placeholder) placeholder.remove();
+
+                const userDetailsSnapshot = await App.db.ref(`users/${uuid}`).once('value');
+                const userDetails = userDetailsSnapshot.val();
+
+                if (userDetails) {
                     const userElement = document.createElement('div');
+                    userElement.id = `user-${uuid}`; // Add an ID for easy removal
                     userElement.textContent = `User ${uuid.substring(0, 8)}...`;
-                    userElement.onclick = () => App.chat.start(uuid, users[uuid].publicKey);
+                    userElement.onclick = () => App.chat.start(uuid, userDetails.publicKey);
                     App.elements.userList.appendChild(userElement);
+                }
+            });
+
+            // Listen for users going offline
+            onlineUsersRef.on('child_removed', snapshot => {
+                const uuid = snapshot.key;
+                const userElement = document.getElementById(`user-${uuid}`);
+                if (userElement) {
+                    userElement.remove();
+                }
+
+                // If the list is now empty, show the placeholder
+                if (App.elements.userList.children.length === 0) {
+                    App.elements.userList.innerHTML = '<p class="text-gray-400 placeholder">No other users online.</p>';
                 }
             });
         },
 
-        async start(uuid, publicKey) {
+        async start(uuid, publicKeyString) {
+            const publicKey = JSON.parse(publicKeyString);
             App.state.currentChatPartner = { uuid, publicKey };
             App.elements.chatPartnerUuidDisplay.textContent = uuid.substring(0, 8) + '...';
             App.elements.messageInput.disabled = false;
@@ -286,7 +360,7 @@ const App = {
             const messagesRef = App.db.ref(`chats/${chatId}`).orderByChild('timestamp');
             
             if (App.state.activeChatListener) {
-                App.state.activeChatListener.off(); // Detach old listener
+                App.state.activeChatListener.off();
             }
             App.state.activeChatListener = messagesRef;
 
@@ -313,7 +387,8 @@ const App = {
                     App.state.messageToDecrypt = { data: messageData, element: content };
                     const success = await App.modal.openVerification();
                     if (success) {
-                        const partnerPublicKey = (await App.db.ref(`users/${messageData.senderId}/publicKey`).once('value')).val();
+                        const partnerData = (await App.db.ref(`users/${messageData.senderId}`).once('value')).val();
+                        const partnerPublicKey = JSON.parse(partnerData.publicKey);
                         const cacheKey = [App.state.myIdentity.uuid, messageData.senderId].sort().join('-');
                         if (!App.state.sharedSecretCache[cacheKey]) {
                             App.state.sharedSecretCache[cacheKey] = await App.crypto.deriveSharedSecret(App.state.myIdentity.privateKey, partnerPublicKey);
@@ -322,9 +397,7 @@ const App = {
                         const decryptedText = await App.crypto.decryptMessage(messageData, sharedKey);
                         content.textContent = decryptedText;
                         msgDiv.classList.add('decrypted');
-                        msgDiv.onclick = null; // Disable further clicks
-                    } else {
-                        App.ui.updateStatus("Verification failed. Cannot decrypt.", "bg-red-500", 3000);
+                        msgDiv.onclick = null;
                     }
                 };
             }
@@ -365,7 +438,8 @@ const App = {
     
     face: {
         async getDescriptor(videoEl) {
-            return await faceapi.detectSingleFace(videoEl, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+            const detection = await faceapi.detectSingleFace(videoEl, App.config.faceapiOptions).withFaceLandmarks().withFaceDescriptor();
+            return detection ? detection.descriptor : null;
         }
     },
 
@@ -379,10 +453,16 @@ const App = {
                 await App.video.start(App.elements.modalVideo, App.elements.modalCanvas, 'modalVideoStream');
 
                 const verifyHandler = async () => {
-                    const detection = await App.face.getDescriptor(App.elements.modalVideo);
-                    if (detection) {
-                        const distance = faceapi.euclideanDistance(App.state.myIdentity.faceDescriptor, detection.descriptor);
-                        cleanupAndResolve(distance < App.config.matchThreshold);
+                    const descriptor = await App.face.getDescriptor(App.elements.modalVideo);
+                    if (descriptor) {
+                        const bestMatch = App.state.myIdentity.faceMatcher.findBestMatch(descriptor);
+                        const isMatch = bestMatch.label !== 'unknown';
+                        
+                        const feedbackMsg = `Match: ${isMatch}. Distance: ${bestMatch.distance.toFixed(2)} (Threshold: ${App.config.matchThreshold})`;
+                        console.log(feedbackMsg);
+                        App.ui.updateStatus(feedbackMsg, isMatch ? "bg-green-500" : "bg-red-500", 3000);
+                        
+                        cleanupAndResolve(isMatch);
                     } else {
                         App.ui.updateStatus("No face detected.", "bg-yellow-500", 2000);
                         cleanupAndResolve(false);
