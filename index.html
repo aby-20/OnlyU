@@ -4,67 +4,56 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Secure Face-Verified E2EE Chat</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Link to the stylesheet -->
+    <link href="style.css" rel="stylesheet">
     <!-- Google Fonts: Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Custom Styles -->
-    <style>
-        body { font-family: 'Inter', sans-serif; }
-        .hidden { display: none; }
-        #videoContainer, #modalVideoContainer {
-            position: relative; width: 100%; max-width: 500px; aspect-ratio: 4 / 3; margin: auto; background-color: #111; border-radius: 0.5rem; overflow: hidden;
-        }
-        video, canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
-        .message { transition: background-color 0.3s; }
-    </style>
 </head>
-<body class="bg-gray-100 text-gray-800">
+<body>
 
-    <div class="container mx-auto p-4 max-w-4xl">
+    <div class="container">
 
         <!-- View 1: Initial Setup (for new users) -->
-        <div id="setup-view" class="text-center bg-white p-8 rounded-lg shadow-xl">
-            <h1 class="text-3xl font-bold mb-2">Welcome to Secure Chat</h1>
-            <p class="text-gray-600 mb-6">To begin, you need to register your face to create a secure identity.</p>
-            <div id="videoContainer" class="mb-4">
+        <div id="setup-view" class="view-container setup-view">
+            <h1>Welcome to Secure Chat</h1>
+            <p class="subtitle">To begin, please register your face to create a secure identity.</p>
+            <div id="videoContainer">
                 <video id="video" playsinline autoplay muted></video>
                 <canvas id="canvas"></canvas>
             </div>
-            <button id="register-btn" class="w-full max-w-xs bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300 transform hover:scale-105 disabled:bg-gray-400">
+            <button id="register-btn" class="btn" disabled>
                 Create My Secure ID
             </button>
         </div>
 
         <!-- View 2: Main Chat Interface (for registered users) -->
         <div id="chat-view" class="hidden">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="chat-layout">
                 <!-- Left Panel: User Info & User List -->
-                <div class="md:col-span-1 bg-white p-6 rounded-lg shadow-lg">
-                    <h2 class="text-xl font-bold mb-4 border-b pb-2">Your Info</h2>
-                    <p class="text-sm text-gray-500">Your Unique ID:</p>
-                    <p id="my-uuid" class="text-xs bg-gray-100 p-2 rounded break-words mb-4"></p>
-                    <button id="copy-uuid-btn" class="w-full text-sm bg-gray-200 hover:bg-gray-300 py-2 rounded mb-6">Copy ID</button>
+                <div class="info-panel">
+                    <h2>Your Info</h2>
+                    <p>Your Unique ID (Click to copy):</p>
+                    <p id="my-uuid"></p>
+                    <button id="logout-btn" class="btn btn-secondary">Logout & Clear ID</button>
                     
-                    <h2 class="text-xl font-bold mb-4 border-b pb-2">Users</h2>
-                    <div id="user-list" class="space-y-2 max-h-96 overflow-y-auto">
+                    <h2>Users</h2>
+                    <div id="user-list">
                         <!-- User list will be populated here -->
                     </div>
                 </div>
 
                 <!-- Right Panel: Chat Window -->
-                <div class="md:col-span-2 bg-white p-6 rounded-lg shadow-lg flex flex-col">
-                    <h2 class="text-2xl font-bold mb-4 border-b pb-2">Chat</h2>
-                    <p class="text-sm mb-2">Chatting with: <span id="chat-partner-uuid" class="font-mono text-blue-600">None</span></p>
-                    <div id="chat-window" class="flex-grow bg-gray-50 p-4 rounded-lg overflow-y-auto h-96 mb-4 border">
-                        <!-- Messages will appear here -->
-                        <p class="text-gray-400 text-center">Select a user to start chatting.</p>
+                <div class="chat-panel">
+                    <h2>Chat</h2>
+                    <p>Chatting with: <span id="chat-partner-uuid">None</span></p>
+                    <div id="chat-window">
+                        <p class="chat-placeholder">Select a user to start chatting.</p>
                     </div>
-                    <div class="flex gap-4">
-                        <input type="text" id="message-input" placeholder="Write a message..." class="flex-grow p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none" disabled>
-                        <button id="send-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg disabled:bg-gray-400" disabled>Send</button>
+                    <div class="chat-input-area">
+                        <input type="text" id="message-input" placeholder="Write an encrypted message..." disabled>
+                        <button id="send-btn" class="btn btn-primary" disabled>Send</button>
                     </div>
                 </div>
             </div>
@@ -72,30 +61,31 @@
     </div>
 
     <!-- Modal for Face Verification to Decrypt Message -->
-    <div id="decrypt-modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4">
-        <div class="bg-white p-8 rounded-lg shadow-2xl text-center max-w-lg w-full">
-            <h2 class="text-2xl font-bold mb-4">Verify Face to Decrypt</h2>
-            <p class="text-gray-600 mb-4">To read this message, please verify your identity by looking at the camera.</p>
-            <div id="modalVideoContainer" class="mb-4">
+    <div id="decrypt-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h2>Verify Face to Decrypt</h2>
+            <p class="subtitle">To read this message, please verify your identity.</p>
+            <div id="modalVideoContainer">
                 <video id="modalVideo" playsinline autoplay muted></video>
                 <canvas id="modalCanvas"></canvas>
             </div>
-            <div class="flex gap-4 justify-center">
-                <button id="verify-decrypt-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg">Verify & Read</button>
-                <button id="cancel-decrypt-btn" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-lg">Cancel</button>
+            <div class="modal-buttons">
+                <button id="verify-decrypt-btn" class="btn btn-success">Verify & Read</button>
+                <button id="cancel-decrypt-btn" class="btn btn-cancel">Cancel</button>
             </div>
         </div>
     </div>
 
     <!-- Status Message Area -->
-    <div id="status-container" class="fixed top-5 right-5">
-         <p id="statusMessage" class="text-white font-medium p-3 rounded-lg shadow-lg opacity-0 transition-opacity duration-500"></p>
+    <div id="status-container">
+         <p id="statusMessage"></p>
     </div>
 
     <!-- SCRIPTS -->
     <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+    <!-- Note: No type="module" is needed now -->
     <script src="main.js"></script>
 
 </body>
