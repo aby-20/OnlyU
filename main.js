@@ -18,7 +18,7 @@ const App = {
   measurementId: "G-7GHC8RPD0T"
         },
         modelsUrl: './models',
-        matchThreshold: 0.55,
+        matchThreshold: 0.70,
         faceapiOptions: new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 }),
         registrationScanDuration: 3000, // 3 seconds
         registrationScanInterval: 500, // 0.5 seconds
